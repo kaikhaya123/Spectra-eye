@@ -26,6 +26,7 @@ body {
     radial-gradient(60rem 40rem at 90% -15%, color-mix(in oklab, #0f2f59 52%, transparent), transparent 68%),
     linear-gradient(145deg, var(--bg-0), var(--bg-1));
   background-attachment: fixed;
+  -webkit-text-size-adjust: 100%;
 }
 
 body::before {
@@ -43,4 +44,19 @@ code,
 pre,
 .mono {
   font-family: var(--font-mono), "Cascadia Code", monospace;
+}
+
+video {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll;
+  }
 }

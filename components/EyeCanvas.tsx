@@ -6,9 +6,10 @@ import type { RefObject } from "react";
 type EyeCanvasProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
   isTracking: boolean;
+  isMobileDevice: boolean;
 };
 
-export function EyeCanvas({ videoRef, isTracking }: EyeCanvasProps) {
+export function EyeCanvas({ videoRef, isTracking, isMobileDevice }: EyeCanvasProps) {
   return (
     <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-black/60 shadow-2xl backdrop-blur-sm">
       <video
@@ -16,7 +17,7 @@ export function EyeCanvas({ videoRef, isTracking }: EyeCanvasProps) {
         muted
         autoPlay
         playsInline
-        className="h-[360px] w-full max-w-[640px] object-cover md:h-[420px]"
+        className={`w-full max-w-[640px] object-cover ${isMobileDevice ? "h-[300px]" : "h-[360px] md:h-[420px]"}`}
       />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(255,255,255,0.22),transparent_45%),linear-gradient(to_top,rgba(0,0,0,0.5),transparent_35%)]" />
       <motion.div
@@ -25,7 +26,7 @@ export function EyeCanvas({ videoRef, isTracking }: EyeCanvasProps) {
           opacity: isTracking ? 0 : 0.8,
           scale: isTracking ? 1.04 : 0.96,
         }}
-        transition={{ duration: 0.35 }}
+        transition={{ duration: isMobileDevice ? 0.2 : 0.35 }}
         className="pointer-events-none absolute inset-0 flex items-center justify-center"
       >
         <div className="rounded-full border border-cyan-300/70 bg-cyan-300/10 px-4 py-2 text-sm font-medium tracking-[0.18em] text-cyan-100">

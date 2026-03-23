@@ -131,8 +131,9 @@ export function EyeTracker() {
   return (
     <main
       className={`relative mx-auto flex min-h-screen w-full flex-col gap-8 text-white transition-all duration-500 ${
-        immersiveMode ? "max-w-none px-4 py-6 md:px-10 md:py-8" : "max-w-6xl px-4 py-10 md:px-8"
+        immersiveMode ? "max-w-none px-3 pb-8 pt-5 md:px-10 md:py-8" : "max-w-6xl px-3 pb-10 pt-7 md:px-8 md:py-10"
       }`}
+      style={{ paddingTop: "max(env(safe-area-inset-top), 0.75rem)", paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
     >
       {immersiveMode && (
         <motion.div
@@ -178,12 +179,8 @@ export function EyeTracker() {
         )}
       </motion.section>
 
-      <section
-        className={`grid items-start gap-7 ${
-          immersiveMode ? "min-h-[78vh] lg:grid-cols-[1.24fr_0.76fr]" : "lg:grid-cols-[1.1fr_0.9fr]"
-        }`}
-      >
-        <EyeCanvas videoRef={videoRef} isTracking={isTracking} />
+      <section className={`grid items-start gap-5 ${immersiveMode ? "min-h-[78vh] lg:grid-cols-[1.24fr_0.76fr]" : "lg:grid-cols-[1.1fr_0.9fr]"}`}>
+        <EyeCanvas videoRef={videoRef} isTracking={isTracking} isMobileDevice={isMobileDevice} />
 
         <motion.div
           initial={{ opacity: 0, x: 16 }}
@@ -198,7 +195,7 @@ export function EyeTracker() {
               type="button"
               onClick={startCamera}
               disabled={isStarting || isReady}
-              className="rounded-full border border-cyan-200/40 bg-cyan-300/15 px-5 py-2 text-sm font-medium tracking-wide text-cyan-100 transition hover:bg-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full border border-cyan-200/40 bg-cyan-300/15 px-4 py-2 text-xs font-medium tracking-[0.14em] text-cyan-100 transition hover:bg-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-60 md:px-5 md:text-sm md:tracking-wide"
             >
               {isReady ? "Camera Active" : isStarting ? "Starting..." : "Enable Webcam"}
             </button>
@@ -249,7 +246,7 @@ export function EyeTracker() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-6">
-            <UIEye gazeX={gazeX} gazeY={gazeY} irisHex={eyeColorHex} isTracking={isTracking} rgb={eyeColorRgb} />
+            <UIEye gazeX={gazeX} gazeY={gazeY} irisHex={eyeColorHex} isTracking={isTracking} rgb={eyeColorRgb} isMobileDevice={isMobileDevice} />
 
             <div className="min-w-48 space-y-3">
               <div className="h-16 w-16 rounded-2xl border border-white/20 shadow-inner" style={{ backgroundColor: eyeColorHex }} />

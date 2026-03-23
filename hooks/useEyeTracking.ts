@@ -58,6 +58,8 @@ const INITIAL_STATE: EyeTrackingState = {
 };
 
 const BRIGHT_SCENE_THRESHOLD = 105;
+const MOBILE_SAMPLE_SIZE = 34;
+const DESKTOP_SAMPLE_SIZE = 48;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -129,29 +131,26 @@ export const useEyeTracking = (
       return null;
     }
 
-    canvas.width = width;
-    canvas.height = height;
+    const sampleSize = isMobileDevice ? MOBILE_SAMPLE_SIZE : DESKTOP_SAMPLE_SIZE;
+
+    canvas.width = sampleSize;
+    canvas.height = sampleSize;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) {
       return null;
     }
 
-    ctx.drawImage(video, 0, 0, width, height);
-
     const px = eyeCenter.x * width;
     const py = eyeCenter.y * height;
-    const blockRadius = Math.max(2, Math.round(Math.min(width, height) * 0.01));
+    const cropRadius = Math.max(8, Math.round(Math.min(width, height) * (isMobileDevice ? 0.035 : 0.028)));
+    const sx = clamp(Math.floor(px - cropRadius), 0, Math.max(0, width - 1));
+    const sy = clamp(Math.floor(py - cropRadius), 0, Math.max(0, height - 1));
+    const sw = Math.max(2, Math.min(cropRadius * 2 + 1, width - sx));
+    const sh = Math.max(2, Math.min(cropRadius * 2 + 1, height - sy));
 
-    const x = Math.max(0, Math.floor(px - blockRadius));
-    const y = Math.max(0, Math.floor(py - blockRadius));
-    const blockSize = blockRadius * 2 + 1;
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sampleSize, sampleSize);
 
-    const image = ctx.getImageData(
-      x,
-      y,
-      Math.min(blockSize, width - x),
-      Math.min(blockSize, height - y),
-    );
+    const image = ctx.getImageData(0, 0, sampleSize, sampleSize);
 
     const enhancedImage =
       useOpenCvEnhancement && openCvRef.current ? denoiseImageDataWithOpenCv(image, openCvRef.current) : image;
@@ -163,8 +162,8 @@ export const useEyeTracking = (
       enhancedImage.width / 2,
       enhancedImage.height / 2,
       {
-        innerRadius: Math.max(1, Math.floor(blockRadius * 0.35)),
-        outerRadius: Math.max(3, Math.floor(blockRadius * 0.95)),
+        innerRadius: Math.max(3, Math.floor(sampleSize * 0.16)),
+        outerRadius: Math.max(7, Math.floor(sampleSize * 0.45)),
       },
     );
 
@@ -199,14 +198,14 @@ export const useEyeTracking = (
       enhancedImage.height,
       enhancedImage.width / 2,
       enhancedImage.height / 2,
-      Math.max(1, Math.floor(blockSize / 2)),
+      Math.max(2, Math.floor(sampleSize * 0.45)),
     );
 
     return {
       rgb: fallbackRgb,
       sceneBrightness,
     };
-  }, [useOpenCvEnhancement]);
+  }, [isMobileDevice, useOpenCvEnhancement]);
 
   useEffect(() => {
     canvasRef.current = document.createElement("canvas");
@@ -216,6 +215,8 @@ export const useEyeTracking = (
     if (!isCameraReady || !videoRef.current) {
       return;
     }
+
+    adaptiveIntervalMsRef.current = isMobileDevice ? 42 : 34;
 
     let cancelled = false;
 
@@ -234,7 +235,7 @@ export const useEyeTracking = (
 
           const frameStartedAt = performance.now();
           const elapsedFromLast = frameStartedAt - lastProcessTimeRef.current;
-          if (isMobileDevice && elapsedFromLast < adaptiveIntervalMsRef.current) {
+          if (elapsedFromLast < adaptiveIntervalMsRef.current) {
             rafRef.current = requestAnimationFrame(tick);
             return;
           }
@@ -271,17 +272,15 @@ export const useEyeTracking = (
           const currentProcessingMs = performance.now() - frameStartedAt;
           const processingFps = currentProcessingMs > 0 ? 1000 / currentProcessingMs : 0;
 
-          if (isMobileDevice) {
-            if (currentProcessingMs > 46) {
-              adaptiveIntervalMsRef.current = Math.min(84, adaptiveIntervalMsRef.current + 4);
-            } else if (currentProcessingMs < 28) {
-              adaptiveIntervalMsRef.current = Math.max(28, adaptiveIntervalMsRef.current - 2);
-            }
+          if (currentProcessingMs > (isMobileDevice ? 42 : 30)) {
+            adaptiveIntervalMsRef.current = Math.min(isMobileDevice ? 92 : 48, adaptiveIntervalMsRef.current + 4);
+          } else if (currentProcessingMs < (isMobileDevice ? 25 : 18)) {
+            adaptiveIntervalMsRef.current = Math.max(isMobileDevice ? 30 : 18, adaptiveIntervalMsRef.current - 2);
           }
 
           const brightnessHint =
             mobileBrightnessAssist && isMobileDevice && !isBrightScene
-              ? "Increase screen brightness and move toward stronger front lighting for better eye lock."
+              ? "Tracking quality may be reduced. Increase screen brightness and move toward stronger front lighting for better eye lock."
               : null;
 
           setState((prev) => ({
@@ -289,7 +288,7 @@ export const useEyeTracking = (
             gazeY: smoothRef.current.y,
             eyeColorRgb: rgb ?? prev.eyeColorRgb,
             eyeColorHex: rgb ? rgbToHex(rgb) : prev.eyeColorHex,
-            isTracking: brightnessHint ? false : true,
+            isTracking: true,
             trackingError: null,
             trackingHint: brightnessHint,
             sceneBrightness,

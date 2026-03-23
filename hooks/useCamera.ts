@@ -47,27 +47,66 @@ export const useCamera = () => {
     setError(null);
 
     try {
-      const videoConstraints: MediaTrackConstraints = isMobileDevice
-        ? {
-            width: { ideal: 960 },
-            height: { ideal: 540 },
-            frameRate: { ideal: 24, max: 30 },
-            facingMode: "user",
-          }
-        : {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30, max: 30 },
-            facingMode: "user",
-          };
+      const candidates: Array<MediaTrackConstraints | boolean> = isMobileDevice
+        ? [
+            {
+              width: { ideal: 960 },
+              height: { ideal: 540 },
+              frameRate: { ideal: 24, max: 30 },
+              facingMode: { ideal: "user" },
+            },
+            {
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+              frameRate: { ideal: 20, max: 24 },
+              facingMode: "user",
+            },
+            { facingMode: "user" },
+            true,
+          ]
+        : [
+            {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              frameRate: { ideal: 30, max: 30 },
+              facingMode: "user",
+            },
+            {
+              width: { ideal: 960 },
+              height: { ideal: 540 },
+              frameRate: { ideal: 24, max: 30 },
+              facingMode: "user",
+            },
+            true,
+          ];
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: videoConstraints,
-        audio: false,
-      });
+      let stream: MediaStream | null = null;
+      let lastError: unknown = null;
 
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+      for (const videoConstraints of candidates) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: videoConstraints,
+            audio: false,
+          });
+          break;
+        } catch (candidateError) {
+          lastError = candidateError;
+        }
+      }
+
+      if (!stream) {
+        throw lastError ?? new Error("Unable to access your webcam.");
+      }
+
+      const video = videoRef.current;
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
+
+      await video.play();
       setIsReady(true);
     } catch (cameraError) {
       const message =

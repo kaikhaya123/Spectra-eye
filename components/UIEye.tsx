@@ -9,6 +9,7 @@ type UIEyeProps = {
   irisHex: string;
   isTracking: boolean;
   rgb: { r: number; g: number; b: number };
+  isMobileDevice: boolean;
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -25,10 +26,10 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb }: UIEyeProps) {
+export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb, isMobileDevice }: UIEyeProps) {
   const eyeRef = useRef<HTMLDivElement | null>(null);
 
-  const maxTravel = 34;
+  const maxTravel = isMobileDevice ? 24 : 34;
   const [displayGaze, setDisplayGaze] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
   const [cursorInfluence, setCursorInfluence] = useState({ x: 0, y: 0, proximity: 0 });
@@ -116,40 +117,43 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb }: UIEyeProps) {
     setCursorInfluence({ x: 0, y: 0, proximity: 0 });
   };
 
-  const finalX = clamp(displayGaze.x * 0.85 + cursorInfluence.x * 0.15 * cursorInfluence.proximity, -1, 1);
-  const finalY = clamp(displayGaze.y * 0.85 + cursorInfluence.y * 0.15 * cursorInfluence.proximity, -1, 1);
+  const cursorWeight = isMobileDevice ? 0 : 0.15;
+  const finalX = clamp(displayGaze.x * 0.85 + cursorInfluence.x * cursorWeight * cursorInfluence.proximity, -1, 1);
+  const finalY = clamp(displayGaze.y * 0.85 + cursorInfluence.y * cursorWeight * cursorInfluence.proximity, -1, 1);
 
   const squintAmount = clamp(gazeSpeed * 6.5, 0, 1);
   const blinkCover = blinkPhase === "idle" ? 0 : blinkPhase === "closing" ? 0.45 : 0.2;
   const lidCover = clamp(blinkCover + squintAmount * 0.18, 0, 0.6);
 
-  const pupilScale = clamp(1 + (isHovered ? 0.1 : 0) + cursorInfluence.proximity * 0.06 - squintAmount * 0.08, 0.9, 1.22);
+  const pupilScale = clamp(1 + (isHovered ? 0.08 : 0) + cursorInfluence.proximity * 0.05 - squintAmount * 0.08, 0.9, 1.18);
 
   const glowColor = hexToRgba(irisHex, 0.42);
   const irisLabel = `HEX ${irisHex} | RGB ${rgb.r}, ${rgb.g}, ${rgb.b}`;
 
   return (
-    <div className="relative flex h-72 w-72 items-center justify-center md:h-80 md:w-80">
+    <div className="relative flex h-64 w-64 items-center justify-center md:h-80 md:w-80">
       <motion.div
         animate={{
           boxShadow: isTracking
-            ? `0 0 0 2px rgba(255,255,255,0.12), 0 0 40px ${hexToRgba(irisHex, 0.25)}, 0 0 95px ${hexToRgba(irisHex, 0.22)}`
-            : "0 0 0 1px rgba(255,255,255,0.08), 0 0 40px rgba(0,0,0,0.45)",
+            ? `0 0 0 2px rgba(255,255,255,0.12), 0 0 ${isMobileDevice ? 22 : 40}px ${hexToRgba(irisHex, 0.24)}, 0 0 ${isMobileDevice ? 46 : 95}px ${hexToRgba(irisHex, 0.2)}`
+            : `0 0 0 1px rgba(255,255,255,0.08), 0 0 ${isMobileDevice ? 24 : 40}px rgba(0,0,0,0.45)`,
         }}
         transition={{ duration: 0.45 }}
         className="absolute inset-4 rounded-full"
       />
 
-      <motion.div
-        animate={{ rotate: isTracking ? 360 : 0, opacity: isTracking ? 0.95 : 0.45 }}
-        transition={{ rotate: { duration: 10, ease: "linear", repeat: Infinity }, opacity: { duration: 0.4 } }}
-        className="pointer-events-none absolute inset-0 rounded-full border border-cyan-200/30"
-        style={{
-          background:
-            "conic-gradient(from 45deg, rgba(72,234,255,0.24), rgba(72,234,255,0.02) 40%, rgba(255,255,255,0.16) 52%, rgba(72,234,255,0.03) 78%, rgba(72,234,255,0.24))",
-          maskImage: "radial-gradient(circle, transparent 66%, black 67%)",
-        }}
-      />
+      {!isMobileDevice && (
+        <motion.div
+          animate={{ rotate: isTracking ? 360 : 0, opacity: isTracking ? 0.95 : 0.45 }}
+          transition={{ rotate: { duration: 10, ease: "linear", repeat: Infinity }, opacity: { duration: 0.4 } }}
+          className="pointer-events-none absolute inset-0 rounded-full border border-cyan-200/30"
+          style={{
+            background:
+              "conic-gradient(from 45deg, rgba(72,234,255,0.24), rgba(72,234,255,0.02) 40%, rgba(255,255,255,0.16) 52%, rgba(72,234,255,0.03) 78%, rgba(72,234,255,0.24))",
+            maskImage: "radial-gradient(circle, transparent 66%, black 67%)",
+          }}
+        />
+      )}
 
       <motion.div
         animate={{ scale: isTracking ? [1, 1.02, 1] : 1 }}
@@ -159,20 +163,20 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb }: UIEyeProps) {
 
       <div
         ref={eyeRef}
-        onPointerMove={onPointerMove}
-        onPointerEnter={() => setIsHovered(true)}
-        onPointerLeave={onPointerLeave}
-        className="relative z-10 flex h-60 w-60 items-center justify-center overflow-hidden rounded-full border border-white/35 bg-white/10 md:h-64 md:w-64"
+        onPointerMove={isMobileDevice ? undefined : onPointerMove}
+        onPointerEnter={isMobileDevice ? undefined : () => setIsHovered(true)}
+        onPointerLeave={isMobileDevice ? undefined : onPointerLeave}
+        className="relative z-10 flex h-52 w-52 items-center justify-center overflow-hidden rounded-full border border-white/35 bg-white/10 md:h-64 md:w-64"
       >
         <div className="absolute inset-1 rounded-full bg-[radial-gradient(circle_at_32%_30%,rgba(255,255,255,0.98),rgba(242,247,255,0.92)_35%,rgba(215,227,245,0.75)_62%,rgba(98,120,150,0.38)_100%)]" />
 
         <motion.div
           animate={{ x: finalX * maxTravel, y: finalY * maxTravel }}
           transition={{ type: "spring", stiffness: 170, damping: 20, mass: 0.95 }}
-          className="relative z-20 flex h-[8.5rem] w-[8.5rem] items-center justify-center rounded-full md:h-36 md:w-36"
+          className="relative z-20 flex h-28 w-28 items-center justify-center rounded-full md:h-36 md:w-36"
           style={{
             background: `radial-gradient(circle at 36% 32%, #f6fdff 0%, ${irisHex} 34%, color-mix(in oklab, ${irisHex} 62%, #030716 38%) 72%, #01050f 100%)`,
-            boxShadow: `0 0 30px ${glowColor}`,
+            boxShadow: `0 0 ${isMobileDevice ? 14 : 30}px ${glowColor}`,
           }}
         >
           <div className="absolute inset-[18%] rounded-full border border-white/20" />
@@ -180,7 +184,7 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb }: UIEyeProps) {
           <motion.div
             animate={{ scale: pupilScale }}
             transition={{ duration: 0.2 }}
-            className="relative z-30 h-11 w-11 rounded-full bg-black shadow-[0_0_24px_rgba(0,0,0,0.82)]"
+            className="relative z-30 h-10 w-10 rounded-full bg-black shadow-[0_0_18px_rgba(0,0,0,0.82)] md:h-11 md:w-11"
           >
             <div className="absolute inset-[28%] rounded-full bg-black/85" />
           </motion.div>
@@ -210,9 +214,9 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb }: UIEyeProps) {
       </div>
 
       <motion.div
-        animate={{ x: finalX * 14, y: finalY * 14 }}
+        animate={{ x: finalX * (isMobileDevice ? 9 : 14), y: finalY * (isMobileDevice ? 9 : 14) }}
         transition={{ duration: 0.22 }}
-        className="pointer-events-none absolute -bottom-3 left-1/2 z-40 -translate-x-1/2 rounded-full border border-white/25 bg-slate-950/70 px-4 py-1.5 text-[10px] uppercase tracking-[0.2em] text-cyan-100/90 backdrop-blur"
+        className="pointer-events-none absolute -bottom-3 left-1/2 z-40 -translate-x-1/2 rounded-full border border-white/25 bg-slate-950/70 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-cyan-100/90 backdrop-blur md:px-4 md:text-[10px] md:tracking-[0.2em]"
       >
         {irisLabel}
       </motion.div>
