@@ -44,6 +44,7 @@ export function EyeTracker() {
     eyeColorHex,
     eyeColorRgb,
     isTracking,
+    isModelReady,
     trackingError,
     trackingHint,
     sceneBrightness,
@@ -180,7 +181,7 @@ export function EyeTracker() {
       </motion.section>
 
       <section className={`grid items-start gap-5 ${immersiveMode ? "min-h-[78vh] lg:grid-cols-[1.24fr_0.76fr]" : "lg:grid-cols-[1.1fr_0.9fr]"}`}>
-        <EyeCanvas videoRef={videoRef} isTracking={isTracking} isMobileDevice={isMobileDevice} />
+        <EyeCanvas videoRef={videoRef} isTracking={isTracking} isModelReady={isModelReady} isMobileDevice={isMobileDevice} />
 
         <motion.div
           initial={{ opacity: 0, x: 16 }}

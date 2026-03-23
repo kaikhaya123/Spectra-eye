@@ -14,6 +14,7 @@ type EyeTrackingState = {
   eyeColorHex: string;
   eyeColorRgb: RGB;
   isTracking: boolean;
+  isModelReady: boolean;
   trackingError: string | null;
   trackingHint: string | null;
   sceneBrightness: number;
@@ -51,6 +52,7 @@ const INITIAL_STATE: EyeTrackingState = {
   eyeColorHex: "#B4B4B4",
   eyeColorRgb: INITIAL_RGB,
   isTracking: false,
+  isModelReady: false,
   trackingError: null,
   trackingHint: null,
   sceneBrightness: 0,
@@ -211,6 +213,18 @@ export const useEyeTracking = (
     canvasRef.current = document.createElement("canvas");
   }, []);
 
+  // Pre-warm: start downloading the model immediately on mount, in parallel with
+  // camera setup. createFaceLandmarker() is singleton so this just kicks off the
+  // fetch early. Once it resolves we mark the model as ready so the UI can
+  // distinguish "model loading" from "face not yet detected".
+  useEffect(() => {
+    createFaceLandmarker()
+      .then(() => setState((prev) => ({ ...prev, isModelReady: true })))
+      .catch(() => {
+        // Errors will surface in the main tracking effect's catch block.
+      });
+  }, []);
+
   useEffect(() => {
     if (!isCameraReady || !videoRef.current) {
       return;
@@ -223,6 +237,9 @@ export const useEyeTracking = (
     const run = async () => {
       try {
         const landmarker = await createFaceLandmarker();
+        // Model loaded (or was already cached) — mark it ready in case the
+        // pre-warm effect hasn't fired yet (e.g. very fast local device).
+        setState((prev) => ({ ...prev, isModelReady: true }));
         const video = videoRef.current;
         if (!video || cancelled) {
           return;
@@ -289,6 +306,7 @@ export const useEyeTracking = (
             eyeColorRgb: rgb ?? prev.eyeColorRgb,
             eyeColorHex: rgb ? rgbToHex(rgb) : prev.eyeColorHex,
             isTracking: true,
+            isModelReady: true,
             trackingError: null,
             trackingHint: brightnessHint,
             sceneBrightness,

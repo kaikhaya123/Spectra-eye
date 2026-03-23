@@ -51,6 +51,9 @@ export const createFaceLandmarker = async () => {
       outputFacialTransformationMatrixes: false,
       runningMode: "VIDEO",
       numFaces: 1,
+      minFaceDetectionConfidence: 0.3,
+      minFacePresenceConfidence: 0.3,
+      minTrackingConfidence: 0.3,
     });
   })().catch((error) => {
     // Clear failed initialization so the next user attempt can retry.

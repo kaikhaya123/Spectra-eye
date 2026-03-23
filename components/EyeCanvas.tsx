@@ -6,10 +6,11 @@ import type { RefObject } from "react";
 type EyeCanvasProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
   isTracking: boolean;
+  isModelReady: boolean;
   isMobileDevice: boolean;
 };
 
-export function EyeCanvas({ videoRef, isTracking, isMobileDevice }: EyeCanvasProps) {
+export function EyeCanvas({ videoRef, isTracking, isModelReady, isMobileDevice }: EyeCanvasProps) {
   return (
     <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-black/60 shadow-2xl backdrop-blur-sm">
       <video
@@ -30,7 +31,7 @@ export function EyeCanvas({ videoRef, isTracking, isMobileDevice }: EyeCanvasPro
         className="pointer-events-none absolute inset-0 flex items-center justify-center"
       >
         <div className="rounded-full border border-cyan-300/70 bg-cyan-300/10 px-4 py-2 text-sm font-medium tracking-[0.18em] text-cyan-100">
-          {isTracking ? "LOCKED" : "SCANNING"}
+          {isTracking ? "LOCKED" : !isModelReady ? "LOADING..." : "SCANNING"}
         </div>
       </motion.div>
     </div>
