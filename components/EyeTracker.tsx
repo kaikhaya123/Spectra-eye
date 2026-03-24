@@ -41,6 +41,12 @@ export function EyeTracker() {
   const {
     gazeX,
     gazeY,
+    leftGazeX,
+    leftGazeY,
+    rightGazeX,
+    rightGazeY,
+    leftEyeOpen,
+    rightEyeOpen,
     eyeColorHex,
     eyeColorRgb,
     isTracking,
@@ -180,6 +186,18 @@ export function EyeTracker() {
         )}
       </motion.section>
 
+      <motion.section
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+        className="flex justify-center"
+      >
+        <div className="flex items-center justify-center gap-6">
+          <UIEye gazeX={leftGazeX} gazeY={leftGazeY} irisHex={eyeColorHex} isTracking={isTracking} rgb={eyeColorRgb} isMobileDevice={isMobileDevice} eyeOpenness={leftEyeOpen} />
+          <UIEye gazeX={rightGazeX} gazeY={rightGazeY} irisHex={eyeColorHex} isTracking={isTracking} rgb={eyeColorRgb} isMobileDevice={isMobileDevice} eyeOpenness={rightEyeOpen} />
+        </div>
+      </motion.section>
+
       <section className={`grid items-start gap-5 ${immersiveMode ? "min-h-[78vh] lg:grid-cols-[1.24fr_0.76fr]" : "lg:grid-cols-[1.1fr_0.9fr]"}`}>
         <EyeCanvas videoRef={videoRef} isTracking={isTracking} isModelReady={isModelReady} isMobileDevice={isMobileDevice} />
 
@@ -187,16 +205,14 @@ export function EyeTracker() {
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className={`flex flex-col gap-6 rounded-3xl border p-6 shadow-xl backdrop-blur ${
-            immersiveMode ? "border-cyan-100/20 bg-slate-950/45" : "border-white/15 bg-slate-950/55"
-          }`}
+          className="flex flex-col gap-6 rounded-3xl p-6 shadow-xl backdrop-blur"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
               onClick={startCamera}
               disabled={isStarting || isReady}
-              className="rounded-full border border-cyan-200/40 bg-cyan-300/15 px-4 py-2 text-xs font-medium tracking-[0.14em] text-cyan-100 transition hover:bg-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-60 md:px-5 md:text-sm md:tracking-wide"
+              className="rounded-full px-4 py-2 text-xs font-medium tracking-[0.14em] text-cyan-100 transition disabled:cursor-not-allowed disabled:opacity-60 md:px-5 md:text-sm md:tracking-wide"
             >
               {isReady ? "Camera Active" : isStarting ? "Starting..." : "Enable Webcam"}
             </button>
@@ -204,10 +220,10 @@ export function EyeTracker() {
               <button
                 type="button"
                 onClick={toggleImmersiveMode}
-                className={`rounded-full border px-3 py-1 text-xs font-medium tracking-[0.14em] transition ${
+                className={`rounded-full px-3 py-1 text-xs font-medium tracking-[0.14em] transition ${
                   immersiveMode
-                    ? "border-teal-200/60 bg-teal-300/20 text-teal-100"
-                    : "border-white/20 bg-slate-300/10 text-slate-200"
+                    ? "text-teal-100"
+                    : "text-slate-200"
                 }`}
               >
                 {immersiveMode ? "Immersive ON" : "Immersive OFF"}
@@ -215,10 +231,10 @@ export function EyeTracker() {
               <button
                 type="button"
                 onClick={toggleOpenCvEnhancement}
-                className={`rounded-full border px-3 py-1 text-xs font-medium tracking-[0.14em] transition ${
+                className={`rounded-full px-3 py-1 text-xs font-medium tracking-[0.14em] transition ${
                   useOpenCvEnhancement
-                    ? "border-cyan-200/50 bg-cyan-300/15 text-cyan-100"
-                    : "border-white/20 bg-slate-300/10 text-slate-200"
+                    ? "text-cyan-100"
+                    : "text-slate-200"
                 }`}
               >
                 {useOpenCvEnhancement ? "OpenCV ON" : "OpenCV OFF"}
@@ -227,10 +243,10 @@ export function EyeTracker() {
                 <button
                   type="button"
                   onClick={toggleMobileBrightnessAssist}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium tracking-[0.14em] transition ${
+                  className={`rounded-full px-3 py-1 text-xs font-medium tracking-[0.14em] transition ${
                     mobileBrightnessAssist
-                      ? "border-amber-200/60 bg-amber-300/15 text-amber-100"
-                      : "border-white/20 bg-slate-300/10 text-slate-200"
+                      ? "text-amber-100"
+                      : "text-slate-200"
                   }`}
                 >
                   {mobileBrightnessAssist ? "Brightness Assist ON" : "Brightness Assist OFF"}
@@ -246,53 +262,49 @@ export function EyeTracker() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <UIEye gazeX={gazeX} gazeY={gazeY} irisHex={eyeColorHex} isTracking={isTracking} rgb={eyeColorRgb} isMobileDevice={isMobileDevice} />
-
-            <div className="min-w-48 space-y-3">
-              <div className="h-16 w-16 rounded-2xl border border-white/20 shadow-inner" style={{ backgroundColor: eyeColorHex }} />
-              <p className="text-sm font-semibold tracking-wide">HEX: {eyeColorHex}</p>
-              <p className="text-sm text-slate-200/85">
-                RGB: ({eyeColorRgb.r}, {eyeColorRgb.g}, {eyeColorRgb.b})
-              </p>
-              <p className="text-xs uppercase tracking-[0.22em] text-cyan-100/80">
-                X: {gazeX.toFixed(2)} | Y: {gazeY.toFixed(2)}
-              </p>
-              <p className="text-xs text-slate-300/80">
-                Cal: ({calibrationOffset.x.toFixed(2)}, {calibrationOffset.y.toFixed(2)})
-              </p>
-              <p className="text-xs text-slate-300/80">
-                Light: {sceneBrightness.toFixed(0)} / 255
-              </p>
-              <p className="text-xs text-slate-300/80">FPS: {processingFps.toFixed(0)}</p>
-            </div>
+          <div className="min-w-48 space-y-3">
+            <div className="h-16 w-16 rounded-2xl shadow-inner" style={{ backgroundColor: eyeColorHex }} />
+            <p className="text-sm font-semibold tracking-wide">HEX: {eyeColorHex}</p>
+            <p className="text-sm text-slate-200/85">
+              RGB: ({eyeColorRgb.r}, {eyeColorRgb.g}, {eyeColorRgb.b})
+            </p>
+            <p className="text-xs uppercase tracking-[0.22em] text-cyan-100/80">
+              X: {gazeX.toFixed(2)} | Y: {gazeY.toFixed(2)}
+            </p>
+            <p className="text-xs text-slate-300/80">
+              Cal: ({calibrationOffset.x.toFixed(2)}, {calibrationOffset.y.toFixed(2)})
+            </p>
+            <p className="text-xs text-slate-300/80">
+              Light: {sceneBrightness.toFixed(0)} / 255
+            </p>
+            <p className="text-xs text-slate-300/80">FPS: {processingFps.toFixed(0)}</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setShowCalibration(true)}
-              className="rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs tracking-[0.14em] text-cyan-100 transition hover:bg-cyan-300/20"
+              className="rounded-full px-3 py-1 text-xs tracking-[0.14em] text-cyan-100 transition"
             >
               Open Calibration
             </button>
             <button
               type="button"
               onClick={resetCalibration}
-              className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs tracking-[0.14em] text-slate-100 transition hover:bg-white/10"
+              className="rounded-full px-3 py-1 text-xs tracking-[0.14em] text-slate-100 transition"
             >
               Reset Calibration
             </button>
           </div>
 
           {(error || trackingError) && (
-            <div className="rounded-xl border border-rose-300/40 bg-rose-400/10 px-3 py-2 text-sm text-rose-100">
+            <div className="rounded-xl px-3 py-2 text-sm text-rose-100">
               {error ?? trackingError}
             </div>
           )}
 
           {!error && !trackingError && trackingHint && (
-            <div className="rounded-xl border border-amber-300/45 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+            <div className="rounded-xl px-3 py-2 text-sm text-amber-100">
               {trackingHint}
             </div>
           )}
@@ -303,7 +315,7 @@ export function EyeTracker() {
         <button
           type="button"
           onClick={toggleImmersiveMode}
-          className="fixed right-4 top-4 z-30 rounded-full border border-white/25 bg-slate-950/65 px-4 py-2 text-xs tracking-[0.18em] text-slate-100 backdrop-blur transition hover:bg-slate-900/80"
+          className="fixed right-4 top-4 z-30 rounded-full px-4 py-2 text-xs tracking-[0.18em] text-slate-100 backdrop-blur transition"
         >
           Exit Immersive
         </button>
@@ -315,7 +327,7 @@ export function EyeTracker() {
           animate={{ opacity: 1 }}
           className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
         >
-          <div className="w-full max-w-lg space-y-4 rounded-2xl border border-white/20 bg-slate-950/90 p-6 shadow-2xl">
+          <div className="w-full max-w-lg space-y-4 rounded-2xl p-6 shadow-2xl">
             <h2 className="text-xl font-semibold">Calibration</h2>
             <p className="text-sm text-slate-200/85">
               Look straight at the center of your screen, then capture your current gaze so SPECTRAEYE can offset drift.
@@ -330,14 +342,14 @@ export function EyeTracker() {
                 type="button"
                 disabled={!isTracking}
                 onClick={calibrateFromCurrentGaze}
-                className="rounded-full border border-cyan-200/40 bg-cyan-300/15 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-full px-4 py-2 text-sm text-cyan-100 transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Set Current Gaze As Center
               </button>
               <button
                 type="button"
                 onClick={() => setShowCalibration(false)}
-                className="rounded-full border border-white/25 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:bg-white/10"
+                className="rounded-full px-4 py-2 text-sm text-slate-100 transition"
               >
                 Continue Without Recalibrating
               </button>

@@ -11,6 +11,12 @@ type RGB = { r: number; g: number; b: number };
 type EyeTrackingState = {
   gazeX: number;
   gazeY: number;
+  leftGazeX: number;
+  leftGazeY: number;
+  rightGazeX: number;
+  rightGazeY: number;
+  leftEyeOpen: number;
+  rightEyeOpen: number;
   eyeColorHex: string;
   eyeColorRgb: RGB;
   isTracking: boolean;
@@ -44,11 +50,19 @@ type FaceLandmarkerResult = {
 
 const LEFT_EYE_INDICES = [33, 133, 159, 145, 153, 154, 155, 246];
 const RIGHT_EYE_INDICES = [362, 263, 386, 374, 380, 381, 382, 398];
+const IRIS_INDICES_LEFT = [468, 469, 470, 471, 472]; // iris landmarks for left eye
+const IRIS_INDICES_RIGHT = [473, 474, 475, 476, 477]; // iris landmarks for right eye
 
 const INITIAL_RGB: RGB = { r: 180, g: 180, b: 180 };
 const INITIAL_STATE: EyeTrackingState = {
   gazeX: 0,
   gazeY: 0,
+  leftGazeX: 0,
+  leftGazeY: 0,
+  rightGazeX: 0,
+  rightGazeY: 0,
+  leftEyeOpen: 1,
+  rightEyeOpen: 1,
   eyeColorHex: "#B4B4B4",
   eyeColorRgb: INITIAL_RGB,
   isTracking: false,
@@ -62,6 +76,7 @@ const INITIAL_STATE: EyeTrackingState = {
 const BRIGHT_SCENE_THRESHOLD = 105;
 const MOBILE_SAMPLE_SIZE = 34;
 const DESKTOP_SAMPLE_SIZE = 48;
+const DEFAULT_CALIBRATION_OFFSET: CalibrationOffset = { x: 0, y: 0 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -83,22 +98,80 @@ const averageLandmarks = (landmarks: NormalizedLandmark[], indices: number[]) =>
   };
 };
 
-const getEyeInfo = (result: FaceLandmarkerResult) => {
+const hasRequiredLandmarks = (landmarks: NormalizedLandmark[], indices: number[]) =>
+  indices.every((index) => landmarks[index] && Number.isFinite(landmarks[index].x) && Number.isFinite(landmarks[index].y));
+
+const calculateEyeOpenness = (landmarks: NormalizedLandmark[], topIdx: number, bottomIdx: number): number => {
+  const top = landmarks[topIdx];
+  const bottom = landmarks[bottomIdx];
+  if (!top || !bottom) {
+    return 1;
+  }
+
+  const distance = Math.sqrt(Math.pow(bottom.x - top.x, 2) + Math.pow(bottom.y - top.y, 2));
+  // Normalize to 0-1 range, where 1 is fully open and 0 is closed
+  const openness = clamp(distance * 10, 0, 1);
+  return openness;
+};
+
+const calculateIndividualEyeGaze = (
+  landmarks: NormalizedLandmark[],
+  eyeIndices: number[],
+  irisIndices: number[],
+  calibrationOffset: CalibrationOffset,
+): { gazeX: number; gazeY: number } => {
+  if (!hasRequiredLandmarks(landmarks, [...eyeIndices, ...irisIndices])) {
+    return { gazeX: calibrationOffset.x, gazeY: calibrationOffset.y };
+  }
+
+  const eyeCenter = averageLandmarks(landmarks, eyeIndices);
+
+  // Get iris position
+  const iris = averageLandmarks(landmarks, irisIndices);
+
+  // Calculate gaze as the offset of iris from eye center
+  // Scale and apply calibration
+  const gazeX = clamp((iris.x - eyeCenter.x) * 3.2 + calibrationOffset.x, -1, 1);
+  const gazeY = clamp((iris.y - eyeCenter.y) * 3.2 + calibrationOffset.y, -1, 1);
+
+  return { gazeX, gazeY };
+};
+
+const getEyeInfo = (result: FaceLandmarkerResult, calibrationOffset: CalibrationOffset) => {
   const face = result.faceLandmarks[0];
   if (!face) {
+    return null;
+  }
+
+  if (!hasRequiredLandmarks(face, [...LEFT_EYE_INDICES, ...RIGHT_EYE_INDICES])) {
     return null;
   }
 
   const leftCenter = averageLandmarks(face, LEFT_EYE_INDICES);
   const rightCenter = averageLandmarks(face, RIGHT_EYE_INDICES);
 
+  // Combined center for average gaze
   const x = (leftCenter.x + rightCenter.x) / 2;
   const y = (leftCenter.y + rightCenter.y) / 2;
+
+  // Calculate eye openness
+  const leftEyeOpen = calculateEyeOpenness(face, 159, 145);
+  const rightEyeOpen = calculateEyeOpenness(face, 386, 374);
+
+  // Calculate individual eye gaze
+  const leftGaze = calculateIndividualEyeGaze(face, LEFT_EYE_INDICES, IRIS_INDICES_LEFT, calibrationOffset);
+  const rightGaze = calculateIndividualEyeGaze(face, RIGHT_EYE_INDICES, IRIS_INDICES_RIGHT, calibrationOffset);
 
   return {
     combinedCenter: { x, y },
     leftCenter,
     rightCenter,
+    leftGazeX: leftGaze.gazeX,
+    leftGazeY: leftGaze.gazeY,
+    rightGazeX: rightGaze.gazeX,
+    rightGazeY: rightGaze.gazeY,
+    leftEyeOpen,
+    rightEyeOpen,
   };
 };
 
@@ -111,13 +184,15 @@ export const useEyeTracking = (
   const rafRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const smoothRef = useRef({ x: 0, y: 0 });
+  const leftSmoothRef = useRef({ x: 0, y: 0 });
+  const rightSmoothRef = useRef({ x: 0, y: 0 });
   const openCvRef = useRef<Awaited<ReturnType<typeof loadOpenCv>> | null>(null);
   const openCvErrorRef = useRef<string | null>(null);
   const lastProcessTimeRef = useRef(0);
   const adaptiveIntervalMsRef = useRef(34);
 
   const useOpenCvEnhancement = options?.useOpenCvEnhancement ?? false;
-  const calibrationOffset = options?.calibrationOffset ?? { x: 0, y: 0 };
+  const calibrationOffset = options?.calibrationOffset ?? DEFAULT_CALIBRATION_OFFSET;
   const isMobileDevice = options?.isMobileDevice ?? false;
   const mobileBrightnessAssist = options?.mobileBrightnessAssist ?? false;
 
@@ -266,7 +341,7 @@ export const useEyeTracking = (
           }
 
           const result = landmarker.detectForVideo(currentVideo, performance.now());
-          const eyeInfo = getEyeInfo(result);
+          const eyeInfo = getEyeInfo(result, calibrationOffset);
 
           if (!eyeInfo) {
             setState((prev) => ({ ...prev, isTracking: false }));
@@ -280,6 +355,12 @@ export const useEyeTracking = (
           // Lightweight low-pass filter to avoid jitter in pupil movement.
           smoothRef.current.x = smoothRef.current.x * 0.82 + targetX * 0.18;
           smoothRef.current.y = smoothRef.current.y * 0.82 + targetY * 0.18;
+
+          // Smooth individual eye gaze
+          leftSmoothRef.current.x = leftSmoothRef.current.x * 0.82 + eyeInfo.leftGazeX * 0.18;
+          leftSmoothRef.current.y = leftSmoothRef.current.y * 0.82 + eyeInfo.leftGazeY * 0.18;
+          rightSmoothRef.current.x = rightSmoothRef.current.x * 0.82 + eyeInfo.rightGazeX * 0.18;
+          rightSmoothRef.current.y = rightSmoothRef.current.y * 0.82 + eyeInfo.rightGazeY * 0.18;
 
           const sampled = extractEyeColor(currentVideo, eyeInfo.leftCenter);
           const rgb = sampled?.rgb ?? null;
@@ -303,6 +384,12 @@ export const useEyeTracking = (
           setState((prev) => ({
             gazeX: smoothRef.current.x,
             gazeY: smoothRef.current.y,
+            leftGazeX: leftSmoothRef.current.x,
+            leftGazeY: leftSmoothRef.current.y,
+            rightGazeX: rightSmoothRef.current.x,
+            rightGazeY: rightSmoothRef.current.y,
+            leftEyeOpen: eyeInfo.leftEyeOpen,
+            rightEyeOpen: eyeInfo.rightEyeOpen,
             eyeColorRgb: rgb ?? prev.eyeColorRgb,
             eyeColorHex: rgb ? rgbToHex(rgb) : prev.eyeColorHex,
             isTracking: true,
@@ -336,8 +423,7 @@ export const useEyeTracking = (
       }
     };
   }, [
-    calibrationOffset.x,
-    calibrationOffset.y,
+    calibrationOffset,
     extractEyeColor,
     isCameraReady,
     isMobileDevice,

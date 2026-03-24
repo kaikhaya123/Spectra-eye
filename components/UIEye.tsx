@@ -10,6 +10,7 @@ type UIEyeProps = {
   isTracking: boolean;
   rgb: { r: number; g: number; b: number };
   isMobileDevice: boolean;
+  eyeOpenness?: number;
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -26,7 +27,7 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb, isMobileDevice }: UIEyeProps) {
+export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb, isMobileDevice, eyeOpenness = 1 }: UIEyeProps) {
   const eyeRef = useRef<HTMLDivElement | null>(null);
 
   const maxTravel = isMobileDevice ? 24 : 34;
@@ -123,7 +124,8 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb, isMobileDevice }
 
   const squintAmount = clamp(gazeSpeed * 6.5, 0, 1);
   const blinkCover = blinkPhase === "idle" ? 0 : blinkPhase === "closing" ? 0.45 : 0.2;
-  const lidCover = clamp(blinkCover + squintAmount * 0.18, 0, 0.6);
+  const closedAmount = clamp(1 - eyeOpenness, 0, 1);
+  const lidCover = clamp(blinkCover + squintAmount * 0.18 + closedAmount * 0.65, 0, 1);
 
   const pupilScale = clamp(1 + (isHovered ? 0.08 : 0) + cursorInfluence.proximity * 0.05 - squintAmount * 0.08, 0.9, 1.18);
 
@@ -146,7 +148,7 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb, isMobileDevice }
         <motion.div
           animate={{ rotate: isTracking ? 360 : 0, opacity: isTracking ? 0.95 : 0.45 }}
           transition={{ rotate: { duration: 10, ease: "linear", repeat: Infinity }, opacity: { duration: 0.4 } }}
-          className="pointer-events-none absolute inset-0 rounded-full border border-cyan-200/30"
+        className="pointer-events-none absolute inset-0 rounded-full"
           style={{
             background:
               "conic-gradient(from 45deg, rgba(72,234,255,0.24), rgba(72,234,255,0.02) 40%, rgba(255,255,255,0.16) 52%, rgba(72,234,255,0.03) 78%, rgba(72,234,255,0.24))",
@@ -158,7 +160,7 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb, isMobileDevice }
       <motion.div
         animate={{ scale: isTracking ? [1, 1.02, 1] : 1 }}
         transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-        className="pointer-events-none absolute inset-5 rounded-full border border-cyan-100/20"
+        className="pointer-events-none absolute inset-5 rounded-full"
       />
 
       <div
@@ -166,7 +168,7 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb, isMobileDevice }
         onPointerMove={isMobileDevice ? undefined : onPointerMove}
         onPointerEnter={isMobileDevice ? undefined : () => setIsHovered(true)}
         onPointerLeave={isMobileDevice ? undefined : onPointerLeave}
-        className="relative z-10 flex h-52 w-52 items-center justify-center overflow-hidden rounded-full border border-white/35 bg-white/10 md:h-64 md:w-64"
+        className="relative z-10 flex h-52 w-52 items-center justify-center overflow-hidden rounded-full md:h-64 md:w-64"
       >
         <div className="absolute inset-1 rounded-full bg-[radial-gradient(circle_at_32%_30%,rgba(255,255,255,0.98),rgba(242,247,255,0.92)_35%,rgba(215,227,245,0.75)_62%,rgba(98,120,150,0.38)_100%)]" />
 
@@ -179,7 +181,7 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb, isMobileDevice }
             boxShadow: `0 0 ${isMobileDevice ? 14 : 30}px ${glowColor}`,
           }}
         >
-          <div className="absolute inset-[18%] rounded-full border border-white/20" />
+          <div className="absolute inset-[18%] rounded-full" />
 
           <motion.div
             animate={{ scale: pupilScale }}
@@ -208,7 +210,7 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb, isMobileDevice }
         <motion.div
           animate={{ opacity: focusLock ? 1 : 0.35, scale: focusLock ? 1.02 : 0.98 }}
           transition={{ duration: 0.25 }}
-          className="pointer-events-none absolute inset-2 rounded-full border border-cyan-200/35"
+        className="pointer-events-none absolute inset-2 rounded-full"
           style={{ boxShadow: focusLock ? `0 0 22px ${hexToRgba(irisHex, 0.35)}` : "none" }}
         />
       </div>
@@ -216,7 +218,7 @@ export function UIEye({ gazeX, gazeY, irisHex, isTracking, rgb, isMobileDevice }
       <motion.div
         animate={{ x: finalX * (isMobileDevice ? 9 : 14), y: finalY * (isMobileDevice ? 9 : 14) }}
         transition={{ duration: 0.22 }}
-        className="pointer-events-none absolute -bottom-3 left-1/2 z-40 -translate-x-1/2 rounded-full border border-white/25 bg-slate-950/70 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-cyan-100/90 backdrop-blur md:px-4 md:text-[10px] md:tracking-[0.2em]"
+        className="pointer-events-none absolute -bottom-3 left-1/2 z-40 -translate-x-1/2 rounded-full px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-cyan-100/90 backdrop-blur md:px-4 md:text-[10px] md:tracking-[0.2em]"
       >
         {irisLabel}
       </motion.div>

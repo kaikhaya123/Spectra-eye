@@ -12,13 +12,13 @@ type EyeCanvasProps = {
 
 export function EyeCanvas({ videoRef, isTracking, isModelReady, isMobileDevice }: EyeCanvasProps) {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-black/60 shadow-2xl backdrop-blur-sm">
+    <div className="relative overflow-hidden rounded-3xl shadow-2xl backdrop-blur-sm">
       <video
         ref={videoRef}
         muted
         autoPlay
         playsInline
-        className={`w-full max-w-[640px] object-cover ${isMobileDevice ? "h-[300px]" : "h-[360px] md:h-[420px]"}`}
+        className={`w-full max-w-160 object-cover ${isMobileDevice ? "h-75" : "h-90 md:h-105"}`}
       />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(255,255,255,0.22),transparent_45%),linear-gradient(to_top,rgba(0,0,0,0.5),transparent_35%)]" />
       <motion.div
@@ -30,7 +30,7 @@ export function EyeCanvas({ videoRef, isTracking, isModelReady, isMobileDevice }
         transition={{ duration: isMobileDevice ? 0.2 : 0.35 }}
         className="pointer-events-none absolute inset-0 flex items-center justify-center"
       >
-        <div className="rounded-full border border-cyan-300/70 bg-cyan-300/10 px-4 py-2 text-sm font-medium tracking-[0.18em] text-cyan-100">
+        <div className="rounded-full px-4 py-2 text-sm font-medium tracking-[0.18em] text-cyan-100">
           {isTracking ? "LOCKED" : !isModelReady ? "LOADING..." : "SCANNING"}
         </div>
       </motion.div>
